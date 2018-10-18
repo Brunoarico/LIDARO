@@ -4,6 +4,9 @@
 #include <WiFi.h>
 #include <ArduinoOTA.h> 
 #include <ESPmDNS.h> 
+#include <DNSServer.h>
+#include <WebServer.h>
+#include <WiFiManager.h> 
 #include <WiFiUdp.h> 
 #include "MPU6050_6Axis_MotionApps20.h"
 
@@ -16,12 +19,12 @@
 #define uS_MAX  2000
 #define DEL_uS 10
 
-#define MPU6050_ACCEL_OFFSET_X -564
-#define MPU6050_ACCEL_OFFSET_Y 1060
-#define MPU6050_ACCEL_OFFSET_Z 1167
-#define MPU6050_GYRO_OFFSET_X  -45
-#define MPU6050_GYRO_OFFSET_Y  -24
-#define MPU6050_GYRO_OFFSET_Z  83
+#define MPU6050_ACCEL_OFFSET_X -574
+#define MPU6050_ACCEL_OFFSET_Y 1050
+#define MPU6050_ACCEL_OFFSET_Z 1210
+#define MPU6050_GYRO_OFFSET_X  -21
+#define MPU6050_GYRO_OFFSET_Y  -22
+#define MPU6050_GYRO_OFFSET_Z  47
 
 
 static int taskCore = 0;
@@ -30,8 +33,8 @@ const char* ssid = "TARDIS";
 const char* password =  "PraiaPeruibe";
 const uint16_t port = 8090;
 const int udpPort = 8091;
-const char * host = "192.168.0.115";
-
+char host[14] = "192.168.0.115";
+WiFiManagerParameter ip_server("ip_server", "ip server", host, 14);
 Servo motor;
 Servo servo_lidar;
 VL53L0X sensor;
@@ -110,12 +113,10 @@ void IRAM_ATTR estimation() {
 }
 
 void wifi_setup() {
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.println("...");
-  }
+  WiFiManager wifiManager;
+  wifiManager.addParameter(&ip_server);
+  wifiManager.autoConnect("LIDARO_CONF");
+  strcpy(host, ip_server.getValue());
   udp.begin(udpPort);
   Serial.print("WiFi connected with IP: ");
   Serial.println(WiFi.localIP());
@@ -286,9 +287,13 @@ void coreTask( void * pvParameters ){
     while(true){
       if(onoff){
         wifi_send(data_s);
-        delay(25);
+        Serial.println(data_s);
+        delay(10);
       }
-      else delay(20);
+      else{
+        wifi_send("ping");
+        delay(500);
+      }
     }
 }
 

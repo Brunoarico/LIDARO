@@ -16,7 +16,7 @@ from tkinter import messagebox
 
 pltInterval = 10
 
-d = 800
+d = 300
 
 xmin = -d
 xmax = d
@@ -26,11 +26,10 @@ zmin = -d
 zmax = d
 
 def sphe2cart (r, theta, phi):
-    
-    theta = np.deg2rad(theta+26)+m.atan2(14.5,r)
+    theta = np.deg2rad(theta+16)+m.atan2(14.5,r)
     phi = np.deg2rad(phi-6)
-    x = np.cos(theta) * np.sin(phi) * (r + abs(30.5*np.cos(theta)))
-    y = np.sin(phi) * np.sin(theta) * (r + abs(30.5*np.sin(theta)))
+    x = np.cos(theta) * np.sin(phi) * (r + abs(25*np.cos(theta)))
+    y = np.sin(phi) * np.sin(theta) * (r + abs(25*np.sin(theta)))
     z = np.cos(phi) * r
     #print("cart " , str(x), str(y), str(z))
     return x, y, z
@@ -43,11 +42,6 @@ def rot_3D(xcal, ycal, zcal, point):
                   [-np.cos(b)*np.sin(c), np.cos(a)*np.cos(c)-np.sin(a)*np.sin(b)*np.sin(c), np.sin(a)*np.cos(c)+np.cos(a)*np.sin(b)*np.sin(c)],
                   [np.sin(b)          , -np.sin(a)*np.cos(b)                             , np.cos(a)*np.cos(b)]]
     return np.matmul(rot_matrix,point)
-
-def  map(x, in_min, in_max, out_min, out_max):
-    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
-
-
 
 class wifiPlot:
     def __init__(self, Port_r = 8090, Port_s = 8091, ip = "192.168.0.197"):
@@ -70,6 +64,8 @@ class wifiPlot:
         self.xcal = 0
         self.ycal = 0
         self.zcal = 0
+        self.lastTime = 0
+        self.now = 0
     def readWifiStart(self):
         if self.thread == None:
             self.thread = Thread(target=self.backgroundThread, daemon=True)
@@ -96,26 +92,45 @@ class wifiPlot:
                 pass
             
     def getWifiData(self,num):
+    
         while self.isReceiving != True:
                 time.sleep(0.1)
                 return graph,
-        if(self.rawData[0] == 'c0'):
-            #print(self.rawData)
-            self.zcal = float(self.rawData[1])
-            self.ycal = -float(self.rawData[3])
-            self.xcal = float(self.rawData[2])
+        self.now = int(round(time.time() * 1000))
             
-        if (self.rawData[2].isdigit() and float(self.rawData[2]) > 0):
-            if(self.mode == '0'):
-                xx, yy, zz = rot_3D(self.xcal, self.ycal, self.zcal, sphe2cart(float(self.rawData[2]), float(self.rawData[1]),90))
-            else:
-                xx, yy, zz = rot_3D(self.xcal, self.ycal, self.zcal, sphe2cart(float(self.rawData[2]), float(self.rawData[1]),float(self.rawData[0])))
-            self.x.append(xx)
-            self.y.append(yy)
-            self.z.append(zz)
+        print(self.now-self.lastTime)
+            
+        if(self.now-self.lastTime < 600):
+            self.lastTime = self.now
+            lbl_online.configure(text="online", bg="green")
+        else:
+            print("off")
+            self.lastTime =self.now
+            lbl_online.configure(text="offline", bg="red")
 
-            graph._offsets3d = (self.x,self.y,self.z)
-        return graph,
+        if(len(self.rawData) > 0):
+                
+            if (self.rawData[0] == "ping"):
+                pass
+            elif(self.rawData[0] == 'c0'):
+                #print(self.rawData)
+                self.zcal = float(self.rawData[1])
+                self.ycal = -float(self.rawData[3])
+                self.xcal = float(self.rawData[2])
+            
+            elif (self.rawData[2].isdigit() and float(self.rawData[2]) > 0):
+                if(self.mode == '0'):
+                    xx, yy, zz = rot_3D(self.xcal, self.ycal, self.zcal, sphe2cart(float(self.rawData[2]), float(self.rawData[1]),90))
+                else:
+                    xx, yy, zz = rot_3D(self.xcal, self.ycal, self.zcal, sphe2cart(float(self.rawData[2]), float(self.rawData[1]),float(self.rawData[0])))
+                self.x.append(xx)
+                self.y.append(yy)
+                self.z.append(zz)
+
+                graph._offsets3d = (self.x,self.y,self.z)
+                
+            self.rawData = []
+            return graph,
     
     def send_value(self, value):
         self.sender.sendto(value.encode(),(self.ip, self.port_s))
@@ -232,6 +247,9 @@ btn_reset.grid(column=3, row=4)
 
 btn_reset = Tk.Button(button_frame, text="To CSV", command=c.make_data_set)
 btn_reset.grid(column=3, row=5)
+
+lbl_online = Tk.Label(button_frame, text="offline", bg="red")
+lbl_online.grid(column=3, row=0, padx= 10, pady=10)
 
 root.protocol("WM_DELETE_WINDOW", on_closing)
 Tk.mainloop()
